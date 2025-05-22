@@ -6,6 +6,6 @@ data = " ".join(sys.argv[1:])
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-sock.sendto(data, (HOST, PORT))
+sock.sendto(data.encode(), (HOST, PORT))
 
 print("Sent:     {}".format(data))

@@ -9,15 +9,15 @@ import simplejson as json
 import datetime 
 import io
 import os
-from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, HTTPServer
 import threading 
 
-FILENAME        = "/home/pi/values.json"
+FILENAME        = "values.json"
 VALUES          = json.loads('{"values": []}')
 MAX_FILE_LEN         = 45000
 
 # send serial message 
-SERIALPORT = "/dev/ttyUSB0"
+SERIALPORT = "COM6"
 BAUDRATE = 115200
 ser = serial.Serial()
 
@@ -41,7 +41,7 @@ def initUART():
         ser.rtscts = False     #disable hardware (RTS/CTS) flow control
         ser.dsrdtr = False       #disable hardware (DSR/DTR) flow control
         #ser.writeTimeout = 0     #timeout for write
-        print 'Starting Up Serial Monitor'
+        print('Starting Up Serial Monitor')
         try:
                 ser.open()
         except serial.SerialException:
@@ -59,7 +59,7 @@ class S(BaseHTTPRequestHandler):
         #self.wfile.write("<html><body><h1>hi!</h1></body></html>")
         saveJSON()
         with open(FILENAME) as data_file:
-                self.wfile.write(data_file.read())
+                self.wfile.write(data_file.read().encode("utf-8"))
     
     def do_HEAD(self):
         self._set_headers()
@@ -72,7 +72,7 @@ class S(BaseHTTPRequestHandler):
 def runWebServer(server_class=HTTPServer, handler_class=S, port=80):
     server_address = ('', port)
     httpd = server_class(server_address, handler_class)
-    print 'Starting httpd...'
+    print('Starting httpd...')
     while KEEP_RUNNING:
         #httpd.serve_forever()
         httpd.handle_request()
@@ -108,10 +108,11 @@ if __name__ == '__main__':
                 while ser.isOpen() : 
                         # time.sleep(100)
                         if (ser.inWaiting() > 0): # if incoming bytes are waiting 
-                                data_str = ser.readline().strip().strip('\x00').strip() 
+                                data_bytes = ser.readline()
+                                data_str = data_bytes.decode(errors="replace").strip().strip('\x00').strip()
                                 # print(repr(data_str))
-				json_data = json.loads(data_str)
-                                json_data["date"] = unicode(datetime.datetime.now())
+                                json_data = json.loads(data_str)
+                                json_data["date"] = str(datetime.datetime.now())
                                 jstr = json.dumps(json_data, indent=4)
                                 VALUES["values"].append(json_data)
                                 if len(VALUES["values"]) > MAX_FILE_LEN :

@@ -11,14 +11,14 @@ import threading
 
 HOST           = "0.0.0.0"
 UDP_PORT       = 10000
-MICRO_COMMANDS = ["TL" , "LT"]
+MICRO_COMMANDS = ["TLH" , "LTH"]
 FILENAME        = "values.txt"
 LAST_VALUE      = ""
 
 class ThreadedUDPRequestHandler(socketserver.BaseRequestHandler):
 
     def handle(self):
-        data = self.request[0].strip()
+        data = self.request[0].strip().decode()
         socket = self.request[1]
         current_thread = threading.current_thread()
         print("{}: client: {}, wrote: {}".format(current_thread.name, self.client_address, data))
@@ -27,7 +27,7 @@ class ThreadedUDPRequestHandler(socketserver.BaseRequestHandler):
                                 sendUARTMessage(data)
                                 
                         elif data == "getValues()": # Sent last value received from micro-controller
-                                socket.sendto(LAST_VALUE, self.client_address) 
+                                socket.sendto(LAST_VALUE.encode(), self.client_address) 
                                 # TODO: Create last_values_received as global variable      
                         else:
                                 print("Unknown message: ",data)
@@ -37,7 +37,13 @@ class ThreadedUDPServer(socketserver.ThreadingMixIn, socketserver.UDPServer):
 
 
 # send serial message 
-SERIALPORT = "/dev/ttyUSB0"
+
+# Pour linux
+# SERIALPORT = "/dev/ttyUSB0"
+
+# Pour windows
+SERIALPORT = "COM6"
+
 BAUDRATE = 115200
 ser = serial.Serial()
 
@@ -73,7 +79,7 @@ def sendUARTMessage(msg):
 # Main program logic follows:
 if __name__ == '__main__':
         initUART()
-        f= open(FILENAME,"a")
+        f= open(FILENAME,"a", encoding="utf-8")
         print ('Press Ctrl-C to quit.')
 
         server = ThreadedUDPServer((HOST, UDP_PORT), ThreadedUDPRequestHandler)
@@ -88,8 +94,9 @@ if __name__ == '__main__':
                         # time.sleep(100)
                         if (ser.inWaiting() > 0): # if incoming bytes are waiting 
                                 data_bytes = ser.read(ser.inWaiting())
-                                data_str = data_bytes.decode()
+                                data_str = data_bytes.decode(errors="replace")  # ignore/détecte les erreurs de décodage
                                 f.write(data_str)
+                                f.flush()  # force l'écriture sur le disque
                                 LAST_VALUE = data_str
                                 print(data_str)
         except (KeyboardInterrupt, SystemExit):
