@@ -14,7 +14,13 @@ HOST           = "0.0.0.0"
 UDP_PORT       = 10000
 MICRO_COMMANDS = ["TLH", "THL", "LTH", "LHT", "HTL", "HLT"]
 FILENAME       = "values.json"
-LAST_VALUE     = ""
+
+# On gère 3 valeurs séparées
+LAST_VALUES = {
+    "temperature": None,
+    "humidity": None,
+    "luminosity": None
+}
 
 class ThreadedUDPRequestHandler(socketserver.BaseRequestHandler):
     def handle(self):
@@ -38,7 +44,8 @@ class ThreadedUDPRequestHandler(socketserver.BaseRequestHandler):
             sendUARTMessage(cmd)
 
         elif act == "getValues()":
-            response = { "lastValue": LAST_VALUE }
+            # On renvoie toutes les dernières valeurs
+            response = LAST_VALUES
             sock.sendto(json.dumps(response).encode(), self.client_address)
 
         else:
@@ -73,10 +80,21 @@ def sendUARTMessage(msg):
     ser.write(msg.encode())
     print(f"Message <{msg}> sent to micro-controller.")
 
-def append_value_to_json(value):
-    """Ajoute une entrée {'timestamp': ..., 'value': ...} au fichier JSON."""
+
+# Dictionnaire des unités associées à chaque clé
+UNITS = {
+    "temperature": "°C",
+    "humidity": "%",
+    "luminosity": "lux"
+}
+
+
+def append_value_to_json(key, value):
+    """Ajoute une entrée {'timestamp': ..., 'key': ..., 'unit': ..., 'value': ...} au fichier JSON."""
     entry = {
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        "key": key,
+        "unit": UNITS.get(key, ""),  # Ajoute l'unité correspondante ou vide si inconnue
         "value": value
     }
     if not os.path.isfile(FILENAME):
@@ -93,10 +111,11 @@ def append_value_to_json(value):
         f.truncate()
         json.dump(data_list, f, ensure_ascii=False, indent=2)
 
+
 if __name__ == '__main__':
     initUART()
     print('Press Ctrl-C to quit.')
-
+    
     # Démarrage du serveur UDP
     server = ThreadedUDPServer((HOST, UDP_PORT), ThreadedUDPRequestHandler)
     server_thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -107,10 +126,16 @@ if __name__ == '__main__':
         # Boucle de lecture du port série : lire ligne par ligne pour éviter les fragments JSON
         while ser.isOpen():
             line = ser.readline().decode(errors="replace").strip()
-            if line:
-                LAST_VALUE = line
-                print(f"Received from micro:bit -> {line}")
-                append_value_to_json(line)
+            if line and ':' in line:
+                key, value = line.split(':', 1)
+                key = key.strip()
+                value = value.strip()
+                if key in LAST_VALUES:
+                    LAST_VALUES[key] = value
+                print(f"Received from micro:bit -> {key} = {value}")
+                append_value_to_json(key, value)
+            # elif line:
+            #     print(f"Ligne reçue sans ':': {line}")
     except (KeyboardInterrupt, SystemExit):
         # Arrêt propre
         server.shutdown()
