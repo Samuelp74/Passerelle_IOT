@@ -1,107 +1,78 @@
-# Program to control passerelle between Android application
-# and micro-controller through USB tty
-import time
-import argparse
-import signal
 import sys
-import socket
 import socketserver
-import serial
 import threading
+import json
 
+from timescale.database import init_db
+from timescale.crud import read
+from uart.uart import MBSerial
+
+# generate fake data
+# from timescale.factory import factory
+
+# global
 HOST           = "0.0.0.0"
 UDP_PORT       = 10000
-MICRO_COMMANDS = ["TLH" , "LTH"]
-FILENAME        = "values.txt"
-LAST_VALUE      = ""
+MICRO_COMMANDS = ["TLH", "THL", "LTH", "LHT", "HTL", "HLT"]
+BASE_TYPES     = ["temperature", "humidity", "luminosity"]
 
-class ThreadedUDPRequestHandler(socketserver.BaseRequestHandler):
-
-    def handle(self):
-        data = self.request[0].strip().decode()
-        socket = self.request[1]
-        current_thread = threading.current_thread()
-        print("{}: client: {}, wrote: {}".format(current_thread.name, self.client_address, data))
-        if data != "":
-                        if data in MICRO_COMMANDS: # Send message through UART
-                                sendUARTMessage(data)
-                                
-                        elif data == "getValues()": # Sent last value received from micro-controller
-                                socket.sendto(LAST_VALUE.encode(), self.client_address) 
-                                # TODO: Create last_values_received as global variable      
-                        else:
-                                print("Unknown message: ",data)
+uBitSerial = MBSerial()
 
 class ThreadedUDPServer(socketserver.ThreadingMixIn, socketserver.UDPServer):
     pass
 
+class ThreadedUDPRequestHandler(socketserver.BaseRequestHandler):
+    def handle(self):
+        raw = self.request[0].strip().decode()
+        sock = self.request[1]
+        thread_name = threading.current_thread().name
 
-# send serial message 
-
-# Pour linux
-# SERIALPORT = "/dev/ttyUSB0"
-
-# Pour windows
-SERIALPORT = "COM6"
-
-BAUDRATE = 115200
-ser = serial.Serial()
-
-def initUART():        
-        # ser = serial.Serial(SERIALPORT, BAUDRATE)
-        ser.port=SERIALPORT
-        ser.baudrate=BAUDRATE
-        ser.bytesize = serial.EIGHTBITS #number of bits per bytes
-        ser.parity = serial.PARITY_NONE #set parity check: no parity
-        ser.stopbits = serial.STOPBITS_ONE #number of stop bits
-        ser.timeout = None          #block read
-
-        # ser.timeout = 0             #non-block read
-        # ser.timeout = 2              #timeout block read
-        ser.xonxoff = False     #disable software flow control
-        ser.rtscts = False     #disable hardware (RTS/CTS) flow control
-        ser.dsrdtr = False       #disable hardware (DSR/DTR) flow control
-        #ser.writeTimeout = 0     #timeout for write
-        print('Starting Up Serial Monitor')
+        # On ne traite que du JSON entrant
         try:
-                ser.open()
-        except serial.SerialException:
-                print("Serial {} port not available".format(SERIALPORT))
-                exit()
+            data = json.loads(raw)
+        except json.JSONDecodeError:
+            print(f"{thread_name}: Invalid JSON received: {raw!r}")
+            return
 
+        print(f"{thread_name}: client: {self.client_address}, received JSON: {data}")
 
+        cmd = data.get("command")
+        if cmd in MICRO_COMMANDS:
+            uBitSerial.send(cmd)
+            return
 
-def sendUARTMessage(msg):
-    ser.write(msg.encode())
-    print("Message <" + msg + "> sent to micro-controller." )
+        act = data.get("action")
+        if  act == "getValues()":
+            # On renvoie toutes les dernières valeurs
+            res = {}
+            sensors = []
+            for i in BASE_TYPES:
+                sensor = read(i)
+                sensors.append(sensor)
+            for i in sensors:
+                res.update({i.type_sensor: i.value})
+            
+            sock.sendto(json.dumps(res).encode(), self.client_address)
+            return
 
+        print(f"{thread_name}: Unknown JSON message: {data}")
 
-# Main program logic follows:
 if __name__ == '__main__':
-        initUART()
-        f= open(FILENAME,"a", encoding="utf-8")
-        print ('Press Ctrl-C to quit.')
+    # timescale db initialization
+    init_db()
+    
+    # Démarrage du serveur UDP
+    server = ThreadedUDPServer((HOST, UDP_PORT), ThreadedUDPRequestHandler)
+    server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+    server_thread.start()
+    print(f"Server started at {HOST} port {UDP_PORT}")
+    print('Press Ctrl-C to quit.')
 
-        server = ThreadedUDPServer((HOST, UDP_PORT), ThreadedUDPRequestHandler)
-
-        server_thread = threading.Thread(target=server.serve_forever)
-        server_thread.daemon = True
-
-        try:
-                server_thread.start()
-                print("Server started at {} port {}".format(HOST, UDP_PORT))
-                while ser.isOpen() : 
-                        # time.sleep(100)
-                        if (ser.inWaiting() > 0): # if incoming bytes are waiting 
-                                data_bytes = ser.read(ser.inWaiting())
-                                data_str = data_bytes.decode(errors="replace")  # ignore/détecte les erreurs de décodage
-                                f.write(data_str)
-                                f.flush()  # force l'écriture sur le disque
-                                LAST_VALUE = data_str
-                                print(data_str)
-        except (KeyboardInterrupt, SystemExit):
-                server.shutdown()
-                server.server_close()
-                f.close()
-                ser.close()
-                exit()
+    try:
+        uBitSerial.start()
+    except (KeyboardInterrupt, SystemExit):
+        # Arrêt propre
+        server.shutdown()
+        server.server_close()
+        # uBitSerial.close()
+        sys.exit(0)

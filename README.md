@@ -1,12 +1,17 @@
-#Mini-projet for 4IRC students at CPE Lyon
+# Mini-projet for 4IRC students at CPE Lyon
 
 ## Installing the server
-In a new raspbian installation:
+
+In any environment:
+
 ```
-sudo apt-get update
-sudo apt-get upgrade
-sudo apt-get install git python python-serial minicom
-sudo usermod -aG dialout pi
+docker compose up -d
 ```
 
-Add a line into `rc.local`to start the game
+> and create a python venv with dependencies in requirement file
+
+## Sources
+
+- [timescaledb-python](https://github.com/jmitchel3/timescaledb-python)
+- [sqlmodel-doc](https://sqlmodel.tiangolo.com/tutorial)
+- [timescale](https://docs.timescale.com)

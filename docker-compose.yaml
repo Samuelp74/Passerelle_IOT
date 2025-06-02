@@ -1,0 +1,47 @@
+services:
+  server:
+    # to uncomment if on windows and com6 serial unavailable
+    profiles:
+      - donotstart
+    image: iot-pass
+    container_name: iot-pass
+    build: .
+    # to uncomment if on windows and com6 serial available
+    ports:
+      - 10000:10000
+    networks:
+      - iot
+  db:
+    image: timescale
+    build:
+      context: .
+      dockerfile: timescale/Dockerfile
+    container_name: iot-pass-db
+    env_file:
+      - .env
+    ports:
+      - 5432:5432
+    volumes:
+      # for timescaledb-ha :
+      # - timescale:/home/postgres/pgdata/data
+      - timescale:/var/lib/postgresql/data
+    networks:
+      - iot
+  graf:
+    image: grafana/grafana
+    container_name: iot-pass-grafana
+    env_file:
+      - .env
+    ports:
+      - 3000:3000
+    networks:
+      - iot
+    volumes:
+      - grafana:/var/lib/grafana
+
+networks:
+  iot:
+
+volumes:
+  timescale:
+  grafana:

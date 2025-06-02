@@ -1,0 +1,10 @@
+# timescale
+timescaledb
+sqlmodel
+#deps
+psycopg2-binary
+#other
+pyserial
+fastapi
+# config
+python-decouple
