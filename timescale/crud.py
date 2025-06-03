@@ -30,10 +30,12 @@ def read(t: str | None):
     query_sensor = select(Sensor, SensorType).join(SensorType)
     if t is not None:
         query_sensor = query_sensor.where(SensorType.label == t)
-    sensor, sensortype = session.exec(query_sensor).first()
-    if sensor is None or sensortype is None:
+    res = session.exec(query_sensor).first()
+    # if no data found
+    if res is None:
         return None
-
+    sensor, sensortype = res
+    
     sensor_read = sensor.to_read_entity(sensortype)
     return sensor_read
 
