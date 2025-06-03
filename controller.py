@@ -46,13 +46,13 @@ class ThreadedUDPRequestHandler(socketserver.BaseRequestHandler):
         if  act == "getValues()":
             # On renvoie toutes les dernières valeurs
             res = {}
-            sensors = []
             for i in BASE_TYPES:
                 sensor = read(i)
-                sensors.append(sensor)
-            for i in sensors:
-                res.update({i.type_sensor: str(math.floor(i.value * 100) / 100)})
-            
+                if sensor is not None:
+                    res.update({i: str(math.floor(sensor.value * 100) / 100)})
+                else:
+                    res.update({i: None})
+                
             sock.sendto(json.dumps(res).encode(), self.client_address)
             return
 
