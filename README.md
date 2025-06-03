@@ -2,13 +2,22 @@
 
 ## Installing the server
 
-In any environment:
+### In any environment (Windows, linux, mac) for the database and grafana:
 
 ```
 docker compose up -d
 ```
 
-> and create a python venv with dependencies in requirement file
+### For the passerel
+
+> Create a python venv with dependencies in requirements.txt file
+> modify the serial port in uart/uart.py
+
+    - COMX for Windows
+    - /dev/tty.usbmodemXXXXX for mac
+    - /dev/ttyX for Linux)
+
+> copy .env.example to .env and put your values there or do not change it
 
 ## Sources
 
