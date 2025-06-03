@@ -16,7 +16,7 @@ UDP_PORT       = 10000
 MICRO_COMMANDS = ["TLH", "THL", "LTH", "LHT", "HTL", "HLT"]
 BASE_TYPES     = ["temperature", "humidity", "luminosity"]
 
-uBitSerial = MBSerial()
+# uBitSerial = MBSerial()
 
 class ThreadedUDPServer(socketserver.ThreadingMixIn, socketserver.UDPServer):
     pass
@@ -38,7 +38,7 @@ class ThreadedUDPRequestHandler(socketserver.BaseRequestHandler):
 
         cmd = data.get("command")
         if cmd in MICRO_COMMANDS:
-            uBitSerial.send(cmd)
+            # uBitSerial.send(cmd)
             return
 
         act = data.get("action")
@@ -50,7 +50,7 @@ class ThreadedUDPRequestHandler(socketserver.BaseRequestHandler):
                 sensor = read(i)
                 sensors.append(sensor)
             for i in sensors:
-                res.update({i.type_sensor: i.value})
+                res.update({i.type_sensor: str(i.value)})
             
             sock.sendto(json.dumps(res).encode(), self.client_address)
             return
@@ -69,7 +69,9 @@ if __name__ == '__main__':
     print('Press Ctrl-C to quit.')
 
     try:
-        uBitSerial.start()
+        while True:
+            pass
+        # uBitSerial.start()
     except (KeyboardInterrupt, SystemExit):
         # Arrêt propre
         server.shutdown()
