@@ -6,7 +6,6 @@ N = 100
 
 # fake data factory
 def factory():
-    types = {"temperature", "humidity", "luminosity"}
     # temperature
     for _ in range(N):
         r = (random() * 20) + 15

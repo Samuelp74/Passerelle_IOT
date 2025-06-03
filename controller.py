@@ -1,3 +1,4 @@
+import math
 import sys
 import socketserver
 import threading
@@ -16,7 +17,7 @@ UDP_PORT       = 10000
 MICRO_COMMANDS = ["TLH", "THL", "LTH", "LHT", "HTL", "HLT"]
 BASE_TYPES     = ["temperature", "humidity", "luminosity"]
 
-# uBitSerial = MBSerial()
+uBitSerial = MBSerial()
 
 class ThreadedUDPServer(socketserver.ThreadingMixIn, socketserver.UDPServer):
     pass
@@ -50,7 +51,7 @@ class ThreadedUDPRequestHandler(socketserver.BaseRequestHandler):
                 sensor = read(i)
                 sensors.append(sensor)
             for i in sensors:
-                res.update({i.type_sensor: str(i.value)})
+                res.update({i.type_sensor: str(math.floor(i.value * 100) / 100)})
             
             sock.sendto(json.dumps(res).encode(), self.client_address)
             return

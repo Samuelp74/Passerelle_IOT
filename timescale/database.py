@@ -25,7 +25,8 @@ def init_db():
 
     with Session(engine) as session:
         query = select(SensorType).where(SensorType.label == "temperature")
-        if session.exec(query) is None:
+        t = session.exec(query).all()
+        if len(t) == 0:
             session.add(tmp)
             session.add(lum)
             session.add(hum)
